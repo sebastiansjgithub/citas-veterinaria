@@ -2,12 +2,14 @@
 
 Prototipo académico para Bivett - Hospital Veterinario Castropol. Centraliza el registro de tutores y mascotas y la programación de citas. Proyecto de Ingeniería de Requisitos (Fundación Universitaria Católica del Norte). Los datos de prueba son ficticios.
 
-## Funcionalidades (versión 1.0.0)
+## Funcionalidades (versión 1.1.0)
 
 - RF-01 y RF-02: registrar tutores y mascotas, y asociar cada mascota a un tutor.
 - RF-03: agendar una cita para una mascota.
 - RF-04: consultar los horarios disponibles de una fecha.
 - RF-05: cancelar una cita, lo que libera su horario.
+- RF-06: registrar atenciones veterinarias (solo veterinario).
+- RF-07: consultar el historial de atenciones de una mascota (veterinario y administrador).
 - Inicio de sesión con tres roles: administrador, recepción y veterinario.
 - Control de acceso por rol (RNF-02): el veterinario solo consulta.
 

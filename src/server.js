@@ -5,6 +5,7 @@ const pool = require('./db');
 const auth = require('./auth');
 const pacientes = require('./pacientes');
 const citas = require('./citas');
+const atenciones = require('./atenciones');
 
 const app = express();
 app.use(express.json());
@@ -12,6 +13,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api', auth);
 app.use('/api', pacientes);
 app.use('/api', citas);
+app.use('/api', atenciones);
 
 app.get('/', (req, res) => res.redirect('/login.html'));
 

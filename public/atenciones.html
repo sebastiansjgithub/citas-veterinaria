@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atenciones - Bivett Castropol</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #eef4f1; }
+    header { background: #1b6b4f; color: #fff; padding: 16px 24px;
+             display: flex; justify-content: space-between; align-items: center; }
+    header a { color: #fff; }
+    main { padding: 24px; max-width: 900px; margin: auto; }
+    .tarjeta { background: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px;
+               box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    h2 { margin-top: 0; font-size: 18px; color: #1b6b4f; }
+    label { display: block; margin-top: 10px; font-size: 14px; }
+    input, select, textarea { width: 100%; padding: 7px; margin-top: 3px; box-sizing: border-box;
+                              font-family: inherit; }
+    button { margin-top: 14px; padding: 9px 16px; background: #1b6b4f; color: #fff;
+             border: 0; border-radius: 6px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+    .ok { color: #1b6b4f; } .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Atenciones veterinarias</strong>
+    <a href="/panel.html">Volver al panel</a>
+  </header>
+  <main>
+    <div class="tarjeta">
+      <h2>Seleccionar mascota</h2>
+      <label for="mascota">Mascota</label>
+      <select id="mascota"></select>
+    </div>
+    <div class="tarjeta" id="formAtencion">
+      <h2>Registrar atención</h2>
+      <label for="diagnostico">Diagnóstico (obligatorio)</label>
+      <textarea id="diagnostico" rows="3"></textarea>
+      <label for="tratamiento">Tratamiento</label>
+      <textarea id="tratamiento" rows="3"></textarea>
+      <button id="guardar">Guardar atención</button>
+      <p id="a_msg"></p>
+    </div>
+    <div class="tarjeta">
+      <h2>Historial de atenciones</h2>
+      <p id="h_msg"></p>
+      <table>
+        <thead><tr><th>Fecha</th><th>Diagnóstico</th><th>Tratamiento</th><th>Veterinario</th></tr></thead>
+        <tbody id="lista"></tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    const rol = localStorage.getItem('rol');
+    if (rol !== 'veterinario') { document.getElementById('formAtencion').style.display = 'none'; }
+    const cabeceras = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+
+    async function pedir(url, opciones) {
+      const r = await fetch(url, Object.assign({ headers: cabeceras }, opciones));
+      if (r.status === 401) { localStorage.clear(); window.location.href = '/login.html'; }
+      return { ok: r.ok, datos: await r.json() };
+    }
+
+    function mostrar(id, texto, esError) {
+      const el = document.getElementById(id);
+      el.textContent = texto;
+      el.className = esError ? 'error' : 'ok';
+    }
+
+    async function cargarHistorial() {
+      const cuerpo = document.getElementById('lista');
+      cuerpo.textContent = '';
+      const mascota = document.getElementById('mascota').value;
+      if (!mascota) return;
+      const { ok, datos } = await pedir('/api/mascotas/' + encodeURIComponent(mascota) + '/atenciones');
+      if (!ok) return mostrar('h_msg', datos.error, true);
+      mostrar('h_msg', datos.length === 0 ? 'Esta mascota aún no tiene atenciones.' : '', false);
+      datos.forEach((a) => {
+        const fila = document.createElement('tr');
+        [a.fecha, a.diagnostico, a.tratamiento || '', a.veterinario].forEach((valor) => {
+          const celda = document.createElement('td');
+          celda.textContent = valor;
+          fila.appendChild(celda);
+        });
+        cuerpo.appendChild(fila);
+      });
+    }
+
+    async function cargarMascotas() {
+      const { datos } = await pedir('/api/mascotas');
+      const select = document.getElementById('mascota');
+      select.textContent = '';
+      datos.forEach((m) => {
+        const op = document.createElement('option');
+        op.value = m.id;
+        op.textContent = m.nombre + ' (' + m.tutor + ')';
+        select.appendChild(op);
+      });
+      cargarHistorial();
+    }
+
+    document.getElementById('mascota').addEventListener('change', cargarHistorial);
+
+    document.getElementById('guardar').addEventListener('click', async () => {
+      const { ok, datos } = await pedir('/api/atenciones', {
+        method: 'POST',
+        body: JSON.stringify({
+          mascota_id: document.getElementById('mascota').value,
+          diagnostico: document.getElementById('diagnostico').value,
+          tratamiento: document.getElementById('tratamiento').value
+        })
+      });
+      if (!ok) return mostrar('a_msg', datos.error, true);
+      mostrar('a_msg', 'Atención guardada (' + datos.fecha + ')', false);
+      document.getElementById('diagnostico').value = '';
+      document.getElementById('tratamiento').value = '';
+      cargarHistorial();
+    });
+
+    cargarMascotas();
+  </script>
+</body>
+</html>
