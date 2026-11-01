@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tutores y mascotas - Bivett Castropol</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #eef4f1; }
+    header { background: #1b6b4f; color: #fff; padding: 16px 24px;
+             display: flex; justify-content: space-between; align-items: center; }
+    header a { color: #fff; }
+    main { padding: 24px; max-width: 900px; margin: auto; }
+    .tarjeta { background: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px;
+               box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    h2 { margin-top: 0; font-size: 18px; color: #1b6b4f; }
+    label { display: block; margin-top: 10px; font-size: 14px; }
+    input, select { width: 100%; padding: 7px; margin-top: 3px; box-sizing: border-box; }
+    button { margin-top: 14px; padding: 9px 16px; background: #1b6b4f; color: #fff;
+             border: 0; border-radius: 6px; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+    .ok { color: #1b6b4f; } .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Tutores y mascotas</strong>
+    <a href="/panel.html">Volver al panel</a>
+  </header>
+  <main>
+    <div id="formularios">
+      <div class="tarjeta">
+        <h2>Registrar tutor</h2>
+        <label>Nombre completo</label><input id="t_nombre">
+        <label>Teléfono</label><input id="t_telefono">
+        <label>Correo</label><input id="t_correo" type="email">
+        <button id="guardarTutor">Guardar tutor</button>
+        <p id="t_msg"></p>
+      </div>
+      <div class="tarjeta">
+        <h2>Registrar mascota</h2>
+        <label>Nombre</label><input id="m_nombre">
+        <label>Especie</label><input id="m_especie" placeholder="Perro, gato...">
+        <label>Raza</label><input id="m_raza">
+        <label>Fecha de nacimiento</label><input id="m_fecha" type="date">
+        <label>Tutor</label><select id="m_tutor"></select>
+        <button id="guardarMascota">Guardar mascota</button>
+        <p id="m_msg"></p>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <h2>Mascotas registradas</h2>
+      <table>
+        <thead><tr><th>ID</th><th>Nombre</th><th>Especie</th><th>Raza</th><th>Nacimiento</th><th>Tutor</th></tr></thead>
+        <tbody id="lista"></tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    const rol = localStorage.getItem('rol');
+    if (rol !== 'recepcion' && rol !== 'administrador') {
+      document.getElementById('formularios').style.display = 'none';
+    }
+    const cabeceras = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+
+    async function pedir(url, opciones) {
+      const r = await fetch(url, Object.assign({ headers: cabeceras }, opciones));
+      if (r.status === 401) { localStorage.clear(); window.location.href = '/login.html'; }
+      return { ok: r.ok, datos: await r.json() };
+    }
+
+    function mostrar(id, texto, esError) {
+      const el = document.getElementById(id);
+      el.textContent = texto;
+      el.className = esError ? 'error' : 'ok';
+    }
+
+    async function cargarTutores() {
+      const { datos } = await pedir('/api/tutores');
+      const select = document.getElementById('m_tutor');
+      select.textContent = '';
+      datos.forEach((t) => {
+        const op = document.createElement('option');
+        op.value = t.id;
+        op.textContent = t.nombre;
+        select.appendChild(op);
+      });
+    }
+
+    async function cargarMascotas() {
+      const { datos } = await pedir('/api/mascotas');
+      const cuerpo = document.getElementById('lista');
+      cuerpo.textContent = '';
+      datos.forEach((m) => {
+        const fila = document.createElement('tr');
+        [m.id, m.nombre, m.especie, m.raza || '', m.fecha_nacimiento || '', m.tutor].forEach((valor) => {
+          const celda = document.createElement('td');
+          celda.textContent = valor;
+          fila.appendChild(celda);
+        });
+        cuerpo.appendChild(fila);
+      });
+    }
+
+    document.getElementById('guardarTutor').addEventListener('click', async () => {
+      const { ok, datos } = await pedir('/api/tutores', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: document.getElementById('t_nombre').value,
+          telefono: document.getElementById('t_telefono').value,
+          correo: document.getElementById('t_correo').value
+        })
+      });
+      if (!ok) return mostrar('t_msg', datos.error, true);
+      mostrar('t_msg', 'Tutor guardado: ' + datos.nombre, false);
+      document.getElementById('t_nombre').value = '';
+      document.getElementById('t_telefono').value = '';
+      document.getElementById('t_correo').value = '';
+      cargarTutores();
+    });
+
+    document.getElementById('guardarMascota').addEventListener('click', async () => {
+      const { ok, datos } = await pedir('/api/mascotas', {
+        method: 'POST',
+        body: JSON.stringify({
+          nombre: document.getElementById('m_nombre').value,
+          especie: document.getElementById('m_especie').value,
+          raza: document.getElementById('m_raza').value,
+          fecha_nacimiento: document.getElementById('m_fecha').value,
+          tutor_id: document.getElementById('m_tutor').value
+        })
+      });
+      if (!ok) return mostrar('m_msg', datos.error, true);
+      mostrar('m_msg', 'Mascota guardada: ' + datos.nombre, false);
+      document.getElementById('m_nombre').value = '';
+      document.getElementById('m_especie').value = '';
+      document.getElementById('m_raza').value = '';
+      document.getElementById('m_fecha').value = '';
+      cargarMascotas();
+    });
+
+    cargarTutores();
+    cargarMascotas();
+  </script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Panel principal - Bivett Castropol</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #eef4f1; }
+    header { background: #1b6b4f; color: #fff; padding: 16px 24px;
+             display: flex; justify-content: space-between; align-items: center; }
+    main { padding: 24px; }
+    button { padding: 8px 14px; border: 0; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Bivett - Hospital Veterinario Castropol</strong>
+    <button id="salir">Cerrar sesión</button>
+  </header>
+  <main>
+    <h2 id="saludo"></h2>
+    <p id="rol"></p>
+    <p><a href="/mascotas.html">Tutores y mascotas</a></p>
+    <p><a href="/citas.html">Citas</a></p>
+  </main>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    document.getElementById('saludo').textContent =
+      'Bienvenido(a), ' + localStorage.getItem('nombre');
+    document.getElementById('rol').textContent =
+      'Rol: ' + localStorage.getItem('rol');
+    document.getElementById('salir').addEventListener('click', () => {
+      localStorage.clear();
+      window.location.href = '/login.html';
+    });
+  </script>
+</body>
+</html>

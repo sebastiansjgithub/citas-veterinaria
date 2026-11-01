@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Citas - Bivett Castropol</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; background: #eef4f1; }
+    header { background: #1b6b4f; color: #fff; padding: 16px 24px;
+             display: flex; justify-content: space-between; align-items: center; }
+    header a { color: #fff; }
+    main { padding: 24px; max-width: 900px; margin: auto; }
+    .tarjeta { background: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px;
+               box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+    h2 { margin-top: 0; font-size: 18px; color: #1b6b4f; }
+    label { display: block; margin-top: 10px; font-size: 14px; }
+    input, select { width: 100%; padding: 7px; margin-top: 3px; box-sizing: border-box; }
+    button { margin-top: 14px; padding: 9px 16px; background: #1b6b4f; color: #fff;
+             border: 0; border-radius: 6px; cursor: pointer; }
+    button.hora { margin: 4px 6px 0 0; background: #fff; color: #1b6b4f; border: 1px solid #1b6b4f; }
+    button.hora.elegida { background: #1b6b4f; color: #fff; }
+    button.hora:disabled { background: #ddd; color: #888; border-color: #ccc; cursor: not-allowed; }
+    button.cancelar { margin: 0; padding: 4px 10px; background: #b00020; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; }
+    .ok { color: #1b6b4f; } .error { color: #b00020; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Agenda de citas</strong>
+    <a href="/panel.html">Volver al panel</a>
+  </header>
+  <main>
+    <div class="tarjeta">
+      <h2>Consultar horarios disponibles</h2>
+      <label for="fecha">Fecha</label>
+      <input id="fecha" type="date">
+      <button id="consultar">Consultar disponibilidad</button>
+      <div id="horarios"></div>
+      <p id="d_msg"></p>
+    </div>
+    <div class="tarjeta" id="formCita">
+      <h2>Agendar cita</h2>
+      <p>Horario elegido: <strong id="horaElegida">ninguno</strong></p>
+      <label for="mascota">Mascota</label>
+      <select id="mascota"></select>
+      <label for="motivo">Motivo de la consulta</label>
+      <input id="motivo" placeholder="Vacunación, control, urgencia...">
+      <button id="guardar">Guardar cita</button>
+      <p id="c_msg"></p>
+    </div>
+    <div class="tarjeta">
+      <h2>Citas de la fecha</h2>
+      <table>
+        <thead><tr><th>Hora</th><th>Mascota</th><th>Tutor</th><th>Motivo</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="lista"></tbody>
+      </table>
+    </div>
+  </main>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) { window.location.href = '/login.html'; }
+    const rol = localStorage.getItem('rol');
+    const puedeEditar = rol === 'recepcion' || rol === 'administrador';
+    if (!puedeEditar) { document.getElementById('formCita').style.display = 'none'; }
+    const cabeceras = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+    let horaElegida = null;
+
+    async function pedir(url, opciones) {
+      const r = await fetch(url, Object.assign({ headers: cabeceras }, opciones));
+      if (r.status === 401) { localStorage.clear(); window.location.href = '/login.html'; }
+      return { ok: r.ok, datos: await r.json() };
+    }
+
+    function mostrar(id, texto, esError) {
+      const el = document.getElementById(id);
+      el.textContent = texto;
+      el.className = esError ? 'error' : 'ok';
+    }
+
+    function elegirHora(hora, boton) {
+      horaElegida = hora;
+      document.getElementById('horaElegida').textContent = hora;
+      document.querySelectorAll('button.hora').forEach((b) => b.classList.remove('elegida'));
+      boton.classList.add('elegida');
+    }
+
+    async function consultar() {
+      const fecha = document.getElementById('fecha').value;
+      horaElegida = null;
+      document.getElementById('horaElegida').textContent = 'ninguno';
+      const contenedor = document.getElementById('horarios');
+      contenedor.textContent = '';
+      mostrar('d_msg', '', false);
+      const { ok, datos } = await pedir('/api/citas/disponibilidad?fecha=' + encodeURIComponent(fecha));
+      if (!ok) return mostrar('d_msg', datos.error, true);
+      const todas = datos.libres.concat(datos.ocupados).sort();
+      todas.forEach((h) => {
+        const boton = document.createElement('button');
+        boton.className = 'hora';
+        boton.textContent = h + (datos.ocupados.includes(h) ? ' (ocupado)' : '');
+        if (datos.ocupados.includes(h)) {
+          boton.disabled = true;
+        } else {
+          boton.addEventListener('click', () => elegirHora(h, boton));
+        }
+        contenedor.appendChild(boton);
+      });
+      mostrar('d_msg', 'Horarios libres: ' + datos.libres.length, false);
+      cargarCitas();
+    }
+
+    async function cargarCitas() {
+      const fecha = document.getElementById('fecha').value;
+      const cuerpo = document.getElementById('lista');
+      cuerpo.textContent = '';
+      if (!fecha) return;
+      const { ok, datos } = await pedir('/api/citas?fecha=' + encodeURIComponent(fecha));
+      if (!ok) return;
+      datos.forEach((c) => {
+        const fila = document.createElement('tr');
+        [c.hora, c.mascota, c.tutor, c.motivo || '', c.estado].forEach((valor) => {
+          const celda = document.createElement('td');
+          celda.textContent = valor;
+          fila.appendChild(celda);
+        });
+        const accion = document.createElement('td');
+        if (puedeEditar && c.estado === 'programada') {
+          const b = document.createElement('button');
+          b.className = 'cancelar';
+          b.textContent = 'Cancelar';
+          b.addEventListener('click', async () => {
+            const r = await pedir('/api/citas/' + c.id + '/cancelar', { method: 'PATCH' });
+            mostrar('c_msg', r.ok ? 'Cita cancelada' : r.datos.error, !r.ok);
+            consultar();
+          });
+          accion.appendChild(b);
+        }
+        fila.appendChild(accion);
+        cuerpo.appendChild(fila);
+      });
+    }
+
+    async function cargarMascotas() {
+      const { datos } = await pedir('/api/mascotas');
+      const select = document.getElementById('mascota');
+      select.textContent = '';
+      datos.forEach((m) => {
+        const op = document.createElement('option');
+        op.value = m.id;
+        op.textContent = m.nombre + ' (' + m.tutor + ')';
+        select.appendChild(op);
+      });
+    }
+
+    document.getElementById('consultar').addEventListener('click', consultar);
+
+    document.getElementById('guardar').addEventListener('click', async () => {
+      const { ok, datos } = await pedir('/api/citas', {
+        method: 'POST',
+        body: JSON.stringify({
+          mascota_id: document.getElementById('mascota').value,
+          fecha: document.getElementById('fecha').value,
+          hora: horaElegida,
+          motivo: document.getElementById('motivo').value
+        })
+      });
+      if (!ok) return mostrar('c_msg', datos.error, true);
+      mostrar('c_msg', 'Cita guardada para las ' + datos.hora, false);
+      document.getElementById('motivo').value = '';
+      consultar();
+    });
+
+    cargarMascotas();
+  </script>
+</body>
+</html>

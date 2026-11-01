@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ingresar - Bivett Castropol</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #eef4f1; display: flex;
+           justify-content: center; align-items: center; height: 100vh; margin: 0; }
+    .caja { background: #fff; padding: 32px; border-radius: 10px; width: 320px;
+            box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+    h1 { font-size: 20px; color: #1b6b4f; margin-top: 0; }
+    label { display: block; margin-top: 14px; font-size: 14px; }
+    input { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+    button { width: 100%; margin-top: 20px; padding: 10px; background: #1b6b4f;
+             color: #fff; border: 0; border-radius: 6px; font-size: 15px; cursor: pointer; }
+    #mensaje { color: #b00020; margin-top: 12px; font-size: 14px; min-height: 18px; }
+  </style>
+</head>
+<body>
+  <div class="caja">
+    <h1>Gestión de Citas y Atención Veterinaria</h1>
+    <label for="correo">Correo</label>
+    <input id="correo" type="email" placeholder="ana@bivett.test">
+    <label for="clave">Clave</label>
+    <input id="clave" type="password">
+    <button id="ingresar">Ingresar</button>
+    <div id="mensaje"></div>
+  </div>
+  <script>
+    document.getElementById('ingresar').addEventListener('click', async () => {
+      const correo = document.getElementById('correo').value;
+      const clave = document.getElementById('clave').value;
+      const mensaje = document.getElementById('mensaje');
+      mensaje.textContent = '';
+      try {
+        const r = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correo, clave })
+        });
+        const datos = await r.json();
+        if (!r.ok) { mensaje.textContent = datos.error; return; }
+        localStorage.setItem('token', datos.token);
+        localStorage.setItem('nombre', datos.nombre);
+        localStorage.setItem('rol', datos.rol);
+        window.location.href = '/panel.html';
+      } catch (e) {
+        mensaje.textContent = 'No se pudo conectar con el servidor';
+      }
+    });
+  </script>
+</body>
+</html>
